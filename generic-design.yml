@@ -1,0 +1,94 @@
+# General Hammer Inputs Related to the Design and Build System
+
+# Generate Make include to aid in flow
+vlsi.core.build_system: make
+vlsi.core.max_threads: 8
+
+# Hammer will auto-generate a CPF for simple power designs; see hammer/src/hammer-vlsi/defaults.yml for more info
+vlsi.inputs.power_spec_mode: auto
+vlsi.inputs.power_spec_type: cpf
+# GF55LPx ARM stdcells have separate pins for power rail and bulk for each supply/ground.
+# This is important for power-gated designs, but here, we just short them together
+# TODO: migrate to tech plugin?
+vlsi.inputs.supplies:
+  power: [{"name": "VDD", "pins": ["VDD", "VNW"]}]
+  ground: [{"name": "VSS", "pins": ["VSS", "VPW"]}]
+  VDD: "1.2 V"
+  VSS: "0 V"
+
+# GF55LPx stdcell models have separate VPW/VNW pins that Hammer auto-cpfs don't correctly connect
+# vlsi.inputs.power_spec_mode: manual
+# vlsi.inputs.power_spec_type: cpf
+# vlsi.inputs.power_spec_contents: |
+#   set_cpf_version 1.0e
+#   set_hierarchy_separator /
+#   set_design prng_top
+#   create_power_nets -nets VDD -voltage 1.2
+#   create_ground_nets -nets { VSS }
+#   create_power_domain -name AO -default
+#   update_power_domain -name AO -primary_power_net VDD -primary_ground_net VSS
+#   create_global_connection -domain AO -net VDD -pins [list VDD VNW]
+#   create_global_connection -domain AO -net VSS -pins [list VSS VPW]
+#   create_nominal_condition -name nominal -voltage 1.2
+#   create_power_mode -name aon -default -domain_conditions {AO@nominal}
+#   end_design
+
+
+# Specify clock signals
+# TODO: is 100ps actually a realistic clock jitter considering our I/Os?
+vlsi.inputs.clocks: [
+  {name: "clk", period: "10ns", uncertainty: "0.1ns"}
+]
+
+# Specify pin properties
+# Default pin placement can be set by the tool
+# Default pin layer assignments can be found in some tech plug-ins
+vlsi.inputs.pin_mode: generated
+vlsi.inputs.pin.generate_mode: semi_auto
+
+# Specify the floorplan
+# Default floor plan can be set by the tool
+# The path name should match the VLSI_TOP makefile parameter if it is set
+par.innovus.floorplan_mode: generate
+
+par.power_straps_mode: manual
+par.power_straps_script_contents: |
+  set_db add_stripes_stacked_via_bottom_layer M1
+  set_db add_stripes_stacked_via_top_layer M1
+  set_db add_stripes_spacing_from_block 0.000
+  add_stripes -pin_layer M1 -layer M1 -over_pins 1 -master "FILLTIE4_A12TR_W3 FILLTIE8_A12TR_W3 FILLTIE16_A12TR_W3" -block_ring_bottom_layer_limit M1 -block_ring_top_layer_limit M1 -pad_core_ring_bottom_layer_limit M1 -pad_core_ring_top_layer_limit M1 -direction horizontal -width pin_width -nets { VSS VDD }
+  set_db add_stripes_stacked_via_top_layer M2
+  set_db add_stripes_stacked_via_bottom_layer M1
+  set_db add_stripes_trim_antenna_back_to_shape {stripe}
+  set_db add_stripes_spacing_from_block 0.000
+  add_stripes -create_pins 0 -block_ring_bottom_layer_limit M2 -block_ring_top_layer_limit M1 -direction vertical -layer M2 -nets {VSS VDD} -pad_core_ring_bottom_layer_limit M1 -set_to_set_distance 25.0 -spacing 0.29 -switch_layer_over_obs 0 -width 0.11 -area [get_db designs .core_bbox] -start [expr [lindex [lindex [get_db designs .core_bbox] 0] 0] + 5.045]
+  set_db add_stripes_stacked_via_top_layer M3
+  set_db add_stripes_stacked_via_bottom_layer M2
+  set_db add_stripes_trim_antenna_back_to_shape {stripe}
+  set_db add_stripes_spacing_from_block 0.000
+  add_stripes -create_pins 0 -block_ring_bottom_layer_limit M3 -block_ring_top_layer_limit M2 -direction horizontal -layer M3 -nets {VSS VDD} -pad_core_ring_bottom_layer_limit M2 -set_to_set_distance 8.0 -spacing 0.49 -switch_layer_over_obs 0 -width 0.51 -area [get_db designs .core_bbox] -start [expr [lindex [lindex [get_db designs .core_bbox] 0] 1] + 0.245]
+  set_db add_stripes_stacked_via_top_layer M4
+  set_db add_stripes_stacked_via_bottom_layer M3
+  set_db add_stripes_trim_antenna_back_to_shape {stripe}
+  set_db add_stripes_spacing_from_block 0.000
+  add_stripes -create_pins 0 -block_ring_bottom_layer_limit M4 -block_ring_top_layer_limit M3 -direction vertical -layer M4 -nets {VSS VDD} -pad_core_ring_bottom_layer_limit M3 -set_to_set_distance 8.0 -spacing 0.49 -switch_layer_over_obs 0 -width 0.51 -area [get_db designs .core_bbox] -start [expr [lindex [lindex [get_db designs .core_bbox] 0] 0] + 0.245]
+  set_db add_stripes_stacked_via_top_layer M5
+  set_db add_stripes_stacked_via_bottom_layer M4
+  set_db add_stripes_trim_antenna_back_to_shape {stripe}
+  set_db add_stripes_spacing_from_block 0.000
+  add_stripes -create_pins 0 -block_ring_bottom_layer_limit M5 -block_ring_top_layer_limit M4 -direction horizontal -layer M5 -nets {VSS VDD} -pad_core_ring_bottom_layer_limit M4 -set_to_set_distance 8.0 -spacing 0.49 -switch_layer_over_obs 0 -width 0.51 -area [get_db designs .core_bbox] -start [expr [lindex [lindex [get_db designs .core_bbox] 0] 1] + 0.245]
+  set_db add_stripes_stacked_via_top_layer M6
+  set_db add_stripes_stacked_via_bottom_layer M5
+  set_db add_stripes_trim_antenna_back_to_shape {stripe}
+  set_db add_stripes_spacing_from_block 0.000
+  add_stripes -create_pins 0 -block_ring_bottom_layer_limit M6 -block_ring_top_layer_limit M5 -direction vertical -layer M6 -nets {VSS VDD} -pad_core_ring_bottom_layer_limit M5 -set_to_set_distance 8.0 -spacing 0.49 -switch_layer_over_obs 0 -width 0.51 -area [get_db designs .core_bbox] -start [expr [lindex [lindex [get_db designs .core_bbox] 0] 0] + 0.245]
+  set_db add_stripes_stacked_via_top_layer EA
+  set_db add_stripes_stacked_via_bottom_layer M6
+  set_db add_stripes_trim_antenna_back_to_shape {stripe}
+  set_db add_stripes_spacing_from_block 0.000
+  add_stripes -create_pins 0 -block_ring_bottom_layer_limit EA -block_ring_top_layer_limit M6 -direction horizontal -layer EA -nets {VSS VDD} -pad_core_ring_bottom_layer_limit M6 -set_to_set_distance 19.2 -spacing 1.69 -switch_layer_over_obs 0 -width 3.91 -start [expr [lindex [lindex [get_db designs .core_bbox] 0] 1] + 0.845]
+  set_db add_stripes_stacked_via_top_layer EB
+  set_db add_stripes_stacked_via_bottom_layer EA
+  set_db add_stripes_trim_antenna_back_to_shape {stripe}
+  set_db add_stripes_spacing_from_block 0.000
+  add_stripes -create_pins 1 -block_ring_bottom_layer_limit EB -block_ring_top_layer_limit EA -direction vertical -layer EB -nets {VSS VDD} -pad_core_ring_bottom_layer_limit EA -set_to_set_distance 19.2 -spacing 1.69 -switch_layer_over_obs 0 -width 3.91 -start [expr [lindex [lindex [get_db designs .core_bbox] 0] 0] + 0.845]

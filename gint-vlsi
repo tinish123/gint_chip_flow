@@ -1,0 +1,544 @@
+#!/usr/bin/env python
+
+import os
+import re
+
+from hammer.vlsi import CLIDriver, HammerTool, HammerToolHookAction, Supply, MMMCCornerType
+import hammer.tech as hammer_tech
+
+from hammer.par.innovus import Innovus
+from hammer.synthesis.genus import Genus
+
+from typing import Dict, Callable, Optional, List
+
+def widened_shielded_routes(tool: HammerTool) -> bool:
+    if tool.top_module == "GINT1AChipletTop":
+        nets_require_shield = "ref0 ref1 ref2 ext0 extA extB".split()
+        for net in nets_require_shield:
+            tool.append(f"set_route_attributes -nets {net} -shield_nets \"VDD VSS\" -bottom_preferred_routing_layer 5 -top_preferred_routing_layer 6")
+        tool.append("create_route_type -name shielded_clock_route_type -shield_net VSS")
+        tool.append("set_db cts_route_type_top shielded_clock_route_type")
+        tool.append("set_db cts_route_type_trunk shielded_clock_route_type")
+    return True
+
+def make_power_rings(x: HammerTool) -> bool:
+    if True:
+        x.append('''
+# This is custom TCL from make_power_rings hook
+# add_ring -nets {VDD VSS AVDD AVSS} -width 12 -layer {top M3 bottom M3 left M4 right M4} -spacing 4
+# add_ring -nets {VDD VSS AVDD AVSS} -width 12 -layer {top M5 bottom M5 left M6 right M6} -spacing 4
+add_ring -nets {VDD VSS AVDD AVSS} -width 12 -layer {top EA bottom EA left EB right EB} -spacing 4
+# add_ring -nets {VDD VSS AVDD AVSS} -width 12 -layer LB -spacing 12
+add_stripes -nets {AVDD AVSS} -layer LB -width 12 -spacing 6 -set_to_set_distance 60 -direction horizontal
+''')
+    return True
+
+def analog_pg_gncs(tool: HammerTool) -> bool:
+    tool.append('''
+connect_global_net AVSS -type pg_pin -pin_base_name AVSS -inst_base_name {}
+connect_global_net AVDD -type pg_pin -pin_base_name AVDD -inst_base_name {}
+connect_global_net DVSS -type pg_pin -pin_base_name DVSS -inst_base_name {}
+connect_global_net DVDD -type pg_pin -pin_base_name DVDD -inst_base_name {}
+''')
+    return True
+
+def route_power(x: HammerTool) -> bool:
+    x.append('''
+set_db route_special_allow_non_preferred_direction_route false ; set_db route_special_via_through_to_closest_ring true ; set_db route_special_extend_nearest_target false ; set_db route_special_via_connect_to_shape { ring noshape} ; set_db route_special_block_pin_connect_ring_pin_corners false ; set_db route_special_block_pin_route_with_pin_width false ; set_db route_special_pad_pin_split { 5 2.5} ; set_db route_special_pad_ring_use_lef true ; set_db route_special_signal_pin_as_pg false ; set_db route_special_core_pin_length_as_inst false ; set_db route_special_endcap_as_core false
+route_special -connect {pad_pin} -layer_change_range { EA(7) LB(9) } -block_pin_target {nearest_target} -pad_pin_port_connect {all_port one_geom} -pad_pin_target {nearest_target} -allow_jogging 1 -crossover_via_layer_range { EA(7) LB(9) } -nets { VDD VSS AVDD AVSS } -allow_layer_change 1 -target_via_layer_range { EA(7) LB(9) }
+# route_special -connect {pad_pin} -layer_change_range { M5(5) LB(9) } -block_pin_target {nearest_target} -pad_pin_port_connect {all_port all_geom} -pad_pin_target {nearest_target} -allow_jogging 1 -crossover_via_layer_range { M3(3) LB(9) } -nets { VDD VSS AVDD AVSS } -allow_layer_change 0 -target_via_layer_range { M3(3) LB(9) }
+# route_special -connect {block_pin pad_pin pad_ring core_pin floating_stripe} \
+#               -layer_change_range { EA(7) LB(9) } -block_pin_target {nearest_target} \
+#               -floating_stripe_target {block_ring pad_ring ring stripe ring_pin block_pin followpin} \
+#               -allow_jogging 0 -crossover_via_layer_range { EA(7) LB(9) } \
+#               -nets { VDD VSS } \
+#               -allow_layer_change 0 -block_pin use_lef -target_via_layer_range { EA(7) LB(9) }
+route_special -connect {block_pin floating_stripe} \
+              -layer_change_range { EA(7) LB(9) } -block_pin_target {nearest_target} \
+              -floating_stripe_target {block_ring pad_ring ring stripe ring_pin block_pin followpin} \
+              -allow_jogging 0  \
+              -nets { AVDD AVSS } \
+              -allow_layer_change 0 -block_pin use_lef -target_via_layer_range { EA(7) LB(9) }
+check_drc
+route_eco -fix_drc
+''')
+    return True
+
+def scan_flop_settings(x: HammerTool) -> bool:
+    #TODO: set condition more carefully: should be called during
+    # Innovus init_design if Genus was not blocked from using
+    # scan-chain pins for core logic
+    #  if x.get_setting("vlsi.core.technology") == "gf55lpx" and isinstance(x, Innovus):
+    if isinstance(x, Innovus):
+        x.append('''
+# This is custom TCL from hook scan_flop_settings
+# Genus likes to use the scan-chain pins of flops
+# to implement enable functionality
+set_db place_global_ignore_scan true
+''')
+    elif isinstance(x, Genus):
+        x.append('''
+# This is custom TCL from hook scan_flop_settings
+# Disable using scan flops unless
+# a scan chain is explicitly defined,
+# even at area cost
+set_db use_scan_seqs_for_non_dft false
+set_db hdl_allow_inout_const_port_connect true
+set_db hdl_error_on_blackbox false
+# set_db interconnect_mode wireload
+''')
+    return True
+
+def place_corner_io_spacers(x: HammerTool) -> bool:
+    if True:
+        RGO_cornercell_size = 230 # microns
+        chip_size = 1500
+        cco = chip_size - RGO_cornercell_size
+        x.append(f'''
+place_inst corner_spacer_0 0 0 r0
+place_inst corner_spacer_1 {cco} 0 r90
+place_inst corner_spacer_2 {cco} {cco} r180
+place_inst corner_spacer_3 0 {cco} r270
+# force re-placing pads to account for corner blockages
+init_design
+''')
+    return True
+
+def place_linear_io_spacers(x: HammerTool) -> bool:
+    if True:
+        x.append('''
+# Custom TCL from place_io_spacers hook
+add_io_fillers -cells SPC_SP_000_33V SPC_SP_001_33V SPC_SP_005_33V SPC_SP_010_33V -prefix IOFILLER -side n
+add_io_fillers -cells SPC_SP_000_33V SPC_SP_001_33V SPC_SP_005_33V SPC_SP_010_33V -prefix IOFILLER -side s
+add_io_fillers -cells SPC_SP_000_33V SPC_SP_001_33V SPC_SP_005_33V SPC_SP_010_33V -prefix IOFILLER -side e
+add_io_fillers -cells SPC_SP_000_33V SPC_SP_001_33V SPC_SP_005_33V SPC_SP_010_33V -prefix IOFILLER -side w
+''')
+    return True
+
+def regenerate_welltaps_and_filler(tool: HammerTool) -> bool:
+    """
+    Intended hook use: after placement.
+    Rips up, then re-places well tap cells to
+    guarantee that they aren't under hard macros.
+    """
+    tool.append(f"""
+delete_filler -cells [get_db add_well_taps_cell]
+delete_filler -cells "FILLCAP3_A12TR_W3 FILLCAP4_A12TR_W3 FILLCAP8_A12TR_W3 FILLCAP16_A12TR_W3 FILLCAP32_A12TR_W3 FILLCAP64_A12TR_W3 FILLCAP128_A12TR_W3 FILLDGCAP12_A12TR_W3 FILLDGCAP16_A12TR_W3 FILLDGCAP32_A12TR_W3 FILLDGCAP64_A12TR_W3 FILLDGCAP128_A12TR_W3"
+add_well_taps \
+-cell_interval {tool.get_setting("vlsi.technology.tap_cell_interval")} \
+-in_row_offset {tool.get_setting("vlsi.technology.tap_cell_offset")}
+set_db add_fillers_cells "FILLCAP3_A12TR_W3 FILLCAP4_A12TR_W3 FILLCAP8_A12TR_W3 FILLDGCAP16_A12TR_W3 FILLDGCAP32_A12TR_W3 FILLDGCAP64_A12TR_W3 FILLDGCAP128_A12TR_W3 FILL1_A12TR_W3 FILL2_A12TR_W3 FILL4_A12TR_W3 FILL8_A12TR_W3 FILL16_A12TR_W3 FILL32_A12TR_W3 FILL64_A12TR_W3 FILL128_A12TR_W3"
+add_fillers
+""" )
+    return True
+
+def init_design_with_io_file_and_user_physical(tool: HammerTool) -> bool:
+    """Initialize the design."""
+    verbose_append = tool.verbose_append
+
+    # Perform common path pessimism removal in setup and hold mode
+    verbose_append("set_db timing_analysis_cppr both")
+    # Use OCV mode for timing analysis by default
+    verbose_append("set_db timing_analysis_type ocv")
+
+    # Read LEF layouts.
+    try:
+        user_physical_lef = tool.get_setting("vlsi.user.custom_physical_library")
+    except:
+        user_physical_lef = ""
+    lef_files = tool.technology.read_libs([
+        hammer_tech.filters.lef_filter
+    ], hammer_tech.HammerTechnologyUtils.to_plain_item)
+    if tool.hierarchical_mode.is_nonleaf_hierarchical():
+        ilm_lefs = list(map(lambda ilm: ilm.lef, tool.get_input_ilms()))
+        lef_files.extend(ilm_lefs)
+    if user_physical_lef:
+        lef_files.append(user_physical_lef)
+    verbose_append("read_physical -lef {{ {files} }}".format(
+        files=" ".join(lef_files)
+    ))
+
+    # Read timing libraries.
+    mmmc_path = os.path.join(tool.run_dir, "mmmc.tcl")
+    tool.write_contents_to_path(tool.generate_mmmc_script(), mmmc_path)
+    verbose_append("read_mmmc {mmmc_path}".format(mmmc_path=mmmc_path))
+
+    # Read netlist.
+    # Innovus only supports structural Verilog for the netlist; the Verilog can be optionally compressed.
+    if not tool.check_input_files([".v", ".v.gz"]):
+        return False
+
+    # We are switching working directories and we still need to find paths.
+    abspath_input_files = list(map(lambda name: os.path.join(os.getcwd(), name), tool.input_files))
+    verbose_append("read_netlist {{ {files} }} -top {top}".format(
+        files=" ".join(abspath_input_files),
+        top=tool.top_module
+    ))
+
+    if tool.hierarchical_mode.is_nonleaf_hierarchical():
+        # Read ILMs.
+        for ilm in tool.get_input_ilms():
+            # Assumes that the ILM was created by Innovus (or at least the file/folder structure).
+            verbose_append("read_ilm -cell {module} -directory {dir}".format(dir=ilm.dir, module=ilm.module))
+
+    # Emit init_power_nets and init_ground_nets in case CPF/UPF is not used
+    # commit_power_intent does not override power nets defined in "init_power_nets"
+    spec_mode = tool.get_setting("vlsi.inputs.power_spec_mode")  # type: str
+    if spec_mode == "empty":
+        power_supplies = tool.get_independent_power_nets()  # type: List[Supply]
+        power_nets = " ".join(map(lambda s: s.name, power_supplies))
+        ground_supplies = tool.get_independent_ground_nets()  # type: List[Supply]
+        ground_nets = " ".join(map(lambda s: s.name, ground_supplies))
+        verbose_append("set_db init_power_nets {{{n}}}".format(n=power_nets))
+        verbose_append("set_db init_ground_nets {{{n}}}".format(n=ground_nets))
+
+    try:
+        io_plan_file_name = tool.get_setting("par.inputs.io_plan_file")
+        verbose_append(f"read_io_file {io_plan_file_name}")
+    except:
+        pass
+
+    # Run init_design to validate data and start the Cadence place-and-route workflow.
+    verbose_append("init_design")
+
+    # Setup power settings from cpf/upf
+    for l in tool.generate_power_spec_commands():
+        verbose_append(l)
+
+    # Set the top and bottom global/detail routing layers.
+    # This must happen after the tech LEF is loaded
+    layers = tool.get_setting("vlsi.technology.routing_layers")
+    if layers is not None:
+        if tool.version() >= tool.version_number("201"):
+            verbose_append(f"set_db design_bottom_routing_layer {layers[0]}")
+            verbose_append(f"set_db design_top_routing_layer {layers[1]}")
+        else:
+            verbose_append(f"set_db route_early_global_bottom_layer {layers[0]}")
+            verbose_append(f"set_db route_early_global_top_layer {layers[1]}")
+            verbose_append(f"set_db route_design_bottom_layer {layers[0]}")
+            verbose_append(f"set_db route_design_top_layer {layers[1]}")
+
+    # Set design effort.
+    verbose_append(f"set_db design_flow_effort {tool.get_setting('par.innovus.design_flow_effort')}")
+    verbose_append(f"set_db design_power_effort {tool.get_setting('par.innovus.design_power_effort')}")
+
+    return True
+
+def mark_noroute_ioring_shared_nets(tool: HammerTool) -> bool:
+    tool.append('''
+# Custom TCL from hook mark_noroute_ioring_shared_nets
+set_route_attributes -nets io_ring_poc -skip_routing true
+set_route_attributes -nets io_ring_hvps -skip_routing true
+set_route_attributes -nets io_ring_bias -skip_routing true
+''')
+    return True
+
+
+def mark_blockage_around_hardmacros(tool: HammerTool) -> bool:
+    tool.append('''
+create_place_blockage -all_macros -cover -snap_to_site -outer_ring_by_side {10 10 10 10}
+# create_place_blockage -all_macros -cover -density 70 -outer_ring_by_side {100 100 100 100} -type partial
+''')
+    return True
+
+def place_endcaps(tool: HammerTool) -> bool:
+    tool.append('''
+set_db add_endcaps_right_edge ENDCAPTIE2_A12TR_W3
+set_db add_endcaps_top_edge { TBCAPNWIN128_A12TR_W3 TBCAPNWIN1_A12TR_W3 }
+set_db add_endcaps_bottom_edge { TBCAPNWOUT128_A12TR_W3 TBCAPNWOUT1_A12TR_W3 }
+set_db add_endcaps_right_top_edge INCNRCAPNWINTIE2_A12TR_W3
+set_db add_endcaps_right_bottom_edge INCNRCAPNWOUTTIE2_A12TR_W3
+set_db add_endcaps_right_top_corner CNRCAPNWIN2_A12TR_W3
+set_db add_endcaps_right_bottom_corner CNRCAPNWOUT2_A12TR_W3
+add_endcaps
+''')
+    return True
+
+def postcts_refine_placement(tool: HammerTool) -> bool:
+    tool.append('''
+place_opt_design -incremental
+place_detail
+''')
+    return True
+
+def export_nonmerged_oasis(tool: HammerTool) -> bool:
+    tool.append('''
+write_stream  GINT1AChipletTop.oasis -format oasis -lib_name GINT1A_dryrun_import -mode all  -map_file /PDKS/GF/55LPx/V1.0_6.0/DesignEnv/VirtuosoOA/libs/cmos55nvm_tech_6_00_02_00_LB/cmos55nvm_tech.layermap -output_macros
+''')
+    return True
+
+def set_padding(tool: HammerTool) -> bool:
+    if re.match(r"GINT2[AB]ChipletTop", tool.top_module):
+        tool.append('''
+set_db place_global_module_padding {mc 2.0}
+''')
+    elif tool.get_setting("synthesis.inputs.top_module") == "GINT1AChipletTop":
+        tool.append('''
+set_db place_global_module_padding {mc 1.25}
+''')
+    return True
+    
+def write_typical_sdf(tool: HammerTool) -> bool:
+    corners = tool.get_mmmc_corners()
+    # Assume first "extra" is the typical view
+    tt_view_name = "{cname}.extra_view".format(cname=next(filter(lambda c: c.type is MMMCCornerType.Extra, corners)).name)
+    tool.append("set_analysis_view -setup {view} -hold {view}".format(
+        view=tt_view_name
+    ))
+    tool.append("write_sdf -view {view} > {run_dir}/{top}.{view}.sdf".format(
+        view=tt_view_name, run_dir=tool.run_dir, top=tool.top_module
+    ))
+    return True
+
+def write_typical_sdf_par(tool: HammerTool) -> bool:
+    corners = tool.get_mmmc_corners()
+    # Assume first "extra" is the typical view
+    tt_view_name = "{cname}.extra_view".format(cname=next(filter(lambda c: c.type is MMMCCornerType.Extra, corners)).name)
+    tool.append("set_analysis_view -setup {view} -hold {view}".format(
+        view=tt_view_name
+    ))
+    tool.append("write_sdf -view {view} {run_dir}/{top}.{view}.postroute.sdf".format(
+        view=tt_view_name, run_dir=tool.run_dir, top=tool.top_module
+    ))
+    return True
+
+def init_environment_with_user_lef(tool: HammerTool) -> bool:
+    # Python sucks here for verbosity
+    verbose_append = tool.verbose_append
+
+    #  verbose_append("set_db hdl_error_on_blackbox false")
+
+    # Clock gating setup
+    if tool.get_setting("synthesis.clock_gating_mode") == "auto":
+        verbose_append("set_db lp_clock_gating_infer_enable  true")
+        # Genus will create instances named CLKGATE_foo, CLKGATE_bar, etc.
+        verbose_append("set_db lp_clock_gating_prefix  {CLKGATE}")
+        verbose_append("set_db lp_insert_clock_gating  true")
+        verbose_append("set_db lp_clock_gating_register_aware true")
+
+    # Set up libraries.
+    # Read timing libraries.
+    mmmc_path = os.path.join(tool.run_dir, "mmmc.tcl")
+    tool.write_contents_to_path(tool.generate_mmmc_script(), mmmc_path)
+    verbose_append("read_mmmc {mmmc_path}".format(mmmc_path=mmmc_path))
+
+    if tool.hierarchical_mode.is_nonleaf_hierarchical():
+        # Read ILMs.
+        for ilm in tool.get_input_ilms():
+            # Assumes that the ILM was created by Innovus (or at least the file/folder structure).
+            verbose_append("read_ilm -basename {data_dir}/{module}_postRoute -module_name {module}".format(
+                data_dir=ilm.data_dir, module=ilm.module))
+
+    # Read LEF layouts.
+    try:
+        user_physical_lef = tool.get_setting("vlsi.user.custom_physical_library")
+    except:
+        user_physical_lef = ""
+    lef_files = tool.technology.read_libs([
+        hammer_tech.filters.lef_filter
+    ], hammer_tech.HammerTechnologyUtils.to_plain_item)
+    if user_physical_lef:
+        lef_files.append(user_physical_lef)
+    if tool.hierarchical_mode.is_nonleaf_hierarchical():
+        ilm_lefs = list(map(lambda ilm: ilm.lef, tool.get_input_ilms()))
+        lef_files.extend(ilm_lefs)
+    verbose_append("read_physical -lef {{ {files} }}".format(
+        files=" ".join(lef_files)
+    ))
+
+    # Load input files and check that they are all Verilog.
+    if not tool.check_input_files([".v", ".sv", "vh"]):
+        return False
+    # We are switching working directories and Genus still needs to find paths.
+    abspath_input_files = list(map(lambda name: os.path.join(os.getcwd(), name), tool.input_files))  # type: List[str]
+
+    # If we are in hierarchical, we need to remove hierarchical sub-modules/sub-blocks.
+    if tool.hierarchical_mode.is_nonleaf_hierarchical():
+        abspath_input_files = list(map(tool.remove_hierarchical_submodules_from_file, abspath_input_files))
+
+    # Add any verilog_synth wrappers (which are needed in some technologies e.g. for SRAMs) which need to be
+    # synthesized.
+    abspath_input_files += tool.technology.read_libs([
+        hammer_tech.filters.verilog_synth_filter
+    ], hammer_tech.HammerTechnologyUtils.to_plain_item)
+
+    # Read the RTL.
+    verbose_append("read_hdl -sv {{ {} }}".format(" ".join(abspath_input_files)))
+
+    # Elaborate/parse the RTL.
+    verbose_append("elaborate {}".format(tool.top_module))
+    # Preserve submodules
+    if tool.hierarchical_mode.is_nonleaf_hierarchical():
+        for ilm in tool.get_input_ilms():
+            verbose_append("set_db module:{top}/{mod} .preserve true".format(top=tool.top_module, mod=ilm.module))
+    verbose_append("init_design -top {}".format(tool.top_module))
+
+    # Setup power settings from cpf/upf
+    # Difference from other tools: apply_power_intent after read
+    power_cmds = tool.generate_power_spec_commands()
+    power_cmds.insert(1, "apply_power_intent -summary")
+    for l in power_cmds:
+        verbose_append(l)
+
+    # Prevent floorplanning targets from getting flattened.
+    # TODO: is there a way to track instance paths through the synthesis process?
+    verbose_append("set_db root: .auto_ungroup none")
+
+    # Set "don't use" cells.
+    for l in tool.generate_dont_use_commands():
+        tool.append(l)
+
+    return True
+
+def set_wire_loads(tool: HammerTool) -> bool:
+    tool.append('''
+# Custom TCL from HAMMER hook set_wire_loads
+# TODO: check capacitance unit, I think it's 1fF
+set_load -wire_load 1000 [get_nets WWL_pre*]
+''')
+    return True
+
+
+def write_typical_sdf(tool: HammerTool) -> bool:
+    corners = tool.get_mmmc_corners()
+    # Assume first "extra" is the typical view
+    tt_view_name = "{cname}.extra_view".format(cname=next(filter(lambda c: c.type is MMMCCornerType.Extra, corners)).name)
+    tool.append("set_analysis_view -setup {view} -hold {view}".format(
+        view=tt_view_name
+    ))
+    tool.append("write_sdf -view {view} > {run_dir}/{top}.{view}.sdf".format(
+        view=tt_view_name, run_dir=tool.run_dir, top=tool.top_module
+    ))
+    return True
+    
+def write_set_dont_use_TSL(tool: HammerTool) -> bool:
+    if re.match(r"main_control[B]?", tool.top_module) or re.match(r"GINT2[AB]ChipletTop", tool.top_module):
+        tool.append("set_dont_use [get_db lib_cells *_A12TSL_*]")
+    return True
+
+def cts_blackbox_fixes(tool: HammerTool) -> bool:
+    if re.match(r"GINT2CHIMChipletTop", tool.top_module):
+        array_name_prefix = "chim/fabric"
+        tool.append("set_db pin:chim/fabric/clock .cts_sink_type stop")
+        tool.append("foreach dc [get_db delay_corners .name] { set_db pin:chim/fabric/clock .cts_capacitance_override 0.01 -index \"delay_corner $dc \" }")
+    elif re.match(r"GINT2[AB]ChipletTop", tool.top_module):
+        array_name_prefix = "a"
+
+        # print("entered bb_fixes hook")
+        clock_pad_pins = "iocell_clock_io/PAD iocell_clock2_io/PAD"
+        sdc_loads = tool.get_setting("vlsi.inputs.output_loads")
+        array_sdc_loads = [name_load for name_load in sdc_loads]
+        pin_name_groups = [f"{array_name_prefix}/{name_load['name']}" for name_load in array_sdc_loads]
+        caps = [name_load["load"].split(" ")[0] for name_load in array_sdc_loads] # note: hook ignores units and assumes you used SDC cap unit (pF for GINT1)
+        # tool.append("set_interactive_constraint_modes [all_constraint_modes]")
+        for png, cap in zip(pin_name_groups, caps):
+            tool.append(
+                f"foreach pin [get_db [get_pins {png}] .name ] {{ set_db pin:$pin .cts_sink_type stop }}"
+            )
+            tool.append(
+                f"foreach pin [get_db [get_pins {png}] .name ] {{ foreach dc [get_db delay_corners .name] {{set_db pin:$pin .cts_capacitance_override {cap} -index \"delay_corner $dc\" }} }}" 
+            )
+            # tool.append(
+            #     f"set_max_capacitance {cap} [get_pins {png}]"
+            # )
+    elif tool.top_module == "GINT1AChipletTop":
+        clock_pad_pins = "iocell_clock_io/PAD iocell_clock2_io/PAD"
+        sdc_loads = tool.get_setting("vlsi.inputs.output_loads")
+        array_sdc_loads = [name_load for name_load in sdc_loads]
+        pin_name_groups = ["a/{n}".format(n=name_load["name"]) for name_load in array_sdc_loads]
+        caps = [name_load["load"].split(" ")[0] for name_load in array_sdc_loads] # note: hook ignores units and assumes you used SDC cap unit (pF for GINT1)
+        for png, cap in zip(pin_name_groups, caps):
+            tool.append(
+                f"foreach pin [get_db [get_pins {png}] .name ] {{ set_db pin:$pin .cts_sink_type stop }}"
+            )
+            tool.append(
+                f"foreach pin [get_db [get_pins {png}] .name ] {{ foreach dc [get_db delay_corners .name] {{set_db pin:$pin .cts_capacitance_override {cap} -index \"delay_corner $dc\" }} }}" 
+            )
+        # tool.append("set_interactive_constraint_modes {}")
+
+    return True
+
+def write_spice_netlist(tool: HammerTool) -> bool:
+    tool.append(
+        f"write_netlist ./{tool.top_module}.spicesim.v -top_module {tool.top_module} -include_pg -exclude_leaf_cells -exclude_insts_of_cells {{ SPC_SP_010_33V SPC_SP_005_33V SPC_SP_001_33V SPC_SP_000_33V FILLTIE2_A12TR_W3 FILLTIE4_A12TR_W3 FILLTIE8_A12TR_W3 FILLTIE16_A12TR_W3 FILL1_A12TR_W3 FILL2_A12TR_W3 FILL4_A12TR_W3 FILL8_A12TR_W3 FILL16_A12TR_W3 FILL32_A12TR_W3 FILL64_A12TR_W3 FILL128_A12TR_W3 CNRCAPNWIN2_A12TR_W3 CNRCAPNWOUT2_A12TR_W3 INCNRCAPNWINTIE2_A12TR_W3 INCNRCAPNWOUTTIE2_A12TR_W3 TBCAPNWIN1_A12TR_W3 TBCAPNWOUT1_A12TR_W3 TBCAPNWIN128_A12TR_W3 TBCAPNWOUT128_A12TR_W3 }} " 
+    )
+    return True
+
+def disable_undefined_blackbox_error(tool: HammerTool) -> bool:
+    tool.append("set_db hdl_error_on_blackbox false")
+    return True
+
+def cts_blackbox_override(tool: HammerTool) -> bool:
+    if "Top".upper() in tool.top_module.upper() and "CHIM".upper() in tool.top_module.upper():
+        tool.append("set_db pin:chim/fabric/clock .cts_sink_type stop")
+        tool.append("foreach dc [get_db delay_corners .name] { set_db pin:chim/fabric/clock .cts_capacitance_override 0.01 -index \"delay_corner $dc \" }")
+    if re.match(r"GINT2[AB]ChipletTop", tool.top_module):
+        pins_to_override = "a/PBIT_EN a/VSAF_EN a/VSAB_EN".split(" ")
+        for pin in pins_to_override:
+            tool.append(f"set_db pin:{pin} .cts_sink_type stop")
+            tool.append(f"foreach dc [get_db delay_corners .name] {{ set_db pin:{pin} .cts_capacitance_override 0.01 -index \"delay_corner $dc \" }}")
+    return True
+    
+def generate_power_report(tool: HammerTool) -> bool:
+    tool.append('''
+report_power > reports/final_power.rpt
+''')
+    return True
+    
+def read_switching_activity(tool: HammerTool) -> bool:
+    tool.append('''
+read_vcd -static -vcd_scope main_control_ams_tb.UUTw1 /home/tinish/gint1/digital/main_control_ams.vcd
+''')
+    return True
+
+class MyDriver(CLIDriver):
+    def get_extra_par_hooks(self) -> List[HammerToolHookAction]:
+        extra_hooks = [
+            # Default set of steps can be found in the CAD tool plugin's __init__.py
+
+            # make_pre_insertion_hook will execute the custom hook before the specified step
+            # SYNTAX: make_pre_insertion_hook("EXISTING_STEP", INSERTED_HOOK)
+            # HammerTool.make_pre_insertion_hook("route_design", example_add_fillers),
+
+            # make_post_insertion_hook will execute the custom hook after the specified step
+            HammerTool.make_replacement_hook("init_design", init_design_with_io_file_and_user_physical),
+            #HammerTool.make_post_insertion_hook("init_design_with_io_file_and_user_physical", scan_flop_settings),
+            HammerTool.make_post_insertion_hook("add_fillers", place_linear_io_spacers),
+            HammerTool.make_pre_insertion_hook("route_design", mark_noroute_ioring_shared_nets),
+            HammerTool.make_post_insertion_hook("opt_design", regenerate_welltaps_and_filler),
+            HammerTool.make_post_insertion_hook("opt_design", route_power),
+
+            # make_removal_hook will remove the specified step from the flow
+            HammerTool.make_removal_hook("place_bumps"),
+            #  HammerTool.make_post_insertion_hook("write_design", write_spice_netlist)
+
+            #  HammerTool.make_post_insertion_hook("floorplan_design", mark_blockage_around_hardmacros),
+            HammerTool.make_post_insertion_hook("floorplan_design", place_endcaps),
+            HammerTool.make_post_insertion_hook("floorplan_design", make_power_rings),
+            HammerTool.make_post_insertion_hook("floorplan_design", analog_pg_gncs),
+
+            HammerTool.make_pre_insertion_hook("place_opt_design", set_padding),
+
+            #HammerTool.make_pre_insertion_hook("clock_tree", cts_blackbox_fixes),
+            HammerTool.make_post_insertion_hook("clock_tree", postcts_refine_placement),
+            # HammerTool.make_pre_insertion_hook("place_opt_design", cts_blackbox_fixes),
+            HammerTool.make_pre_insertion_hook("clock_tree", widened_shielded_routes),
+
+            # HammerTool.make_post_insertion_hook("write_design", write_typical_sdf_par),
+
+
+            # The target step in any of the above calls may be a default step or another one of your custom hooks
+        ]
+        return extra_hooks
+    def get_extra_synthesis_hooks(self) -> List[HammerToolHookAction]:
+        extra_hooks = [
+            HammerTool.make_replacement_hook("init_environment", init_environment_with_user_lef),
+            HammerTool.make_post_insertion_hook("init_environment_with_user_lef", scan_flop_settings),
+            HammerTool.make_post_insertion_hook("write_outputs", write_typical_sdf),
+            # HammerTool.make_post_insertion_hook("init_environment_with_user_lef", set_wire_loads),
+        ]
+        return extra_hooks
+
+if __name__ == '__main__':
+    dr = MyDriver()
+    dr.main()

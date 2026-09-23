@@ -1,0 +1,54 @@
+synthesis.inputs:
+  input_files:
+    - "external/xormix/verilog/rtl/xormix32.v"
+    - "src/main_control/functional/verilog.v"
+    - "src/decoder4Bit/functional/verilog.v"
+    - "src/decoder6Bit/functional/verilog.v"
+    - "src/decoder8Bit/functional/verilog.v"
+    - "src/randClauseSelect/functional/verilog.v"
+    - "src/randVarSelect/functional/verilog.v"
+  input_files_meta: "append"
+  top_module: "main_control"
+
+sim.inputs:
+  input_files:
+    - "xormix/verilog/rtl/xormix32.v"
+    - "src/prng_top/prng_top.v"
+    - "test/prng_top/prng_tb.v"
+  input_files_meta: "append"
+  top_module: "prng_tb"
+  tb_name: "prng_tb"
+  tb_dut: "dut"
+  timescale: "1ns/10ps"
+  # defines: ["DEBUG"]
+  # defines_meta: "append"
+
+vlsi.inputs.pin.assignments:
+  - pins: "*"
+    side: "top"
+    layers: ["M2", "M4", "M6"]
+    preplaced: false
+
+vlsi.inputs.placement_constraints:
+  - path: "main_control"
+    type: toplevel
+    x: 0
+    y: 0
+    width: 500
+    height: 500
+    margins:
+      top: 0
+      bottom: 0
+      left: 0
+      right: 0
+      
+synthesis.clock_gating_mode: empty
+vlsi.inputs.default_output_load: "0.1 pF"
+vlsi.inputs.custom_sdc_constraints:
+  - "set_wire_load_mode top"
+  - "set_wire_load_model -name none"
+
+
+vlsi.inputs.output_loads:
+  - name: "WWL_pre*"
+    load: "1 nF"

@@ -1,0 +1,121 @@
+synthesis.inputs:
+  input_files:
+    - "src/xormix64/functional/verilog.v"
+  input_files_meta: "append"
+  top_module: "xormix64"
+
+# sim.inputs:
+  # input_files:
+    # - "xormix/verilog/rtl/xormix32.v"
+    # - "src/prng_top/prng_top.v"
+    # - "test/prng_top/prng_tb.v"
+  # input_files_meta: "append"
+  # top_module: "prng_tb"
+  # tb_name: "prng_tb"
+  # tb_dut: "dut"
+  # timescale: "1ns/10ps"
+  # defines: ["DEBUG"]
+  # defines_meta: "append"
+
+vlsi.inputs.pin.assignments:
+  - pins: "clk"
+    layers: ["M3"]
+#    location: [395.0, 660.0]
+  - pins: "rst"
+    layers: ["M3"]
+
+vlsi.inputs.placement_constraints:
+  - path: "xormix64"
+    type: toplevel
+    x: 0
+    y: 0
+    width: 100
+    height: 100
+    margins:
+      top: 0
+      bottom: 0
+      left: 0
+      right: 0
+vlsi.inputs.clocks:
+  - name: "clk"
+    period: "1 ns"
+    uncertainty: "0.01 ns"
+
+vlsi.inputs.supplies:
+  power:
+    - "name": "VDD"
+      "pins": ["VDD", "VNW"]
+    # - "name": "IOVDD"
+    #   "pins": ["DVDD"]
+    #   "voltage": "3.3 V"
+    # - "name": "AVDD"
+    #   "pins": ["AVDD"]
+    #   "voltage": "1.2 V"
+  ground:
+    - "name": "VSS"
+      "pins": ["VSS", "VPW"]
+    # - "name": "AVSS"
+    #   "pins": "AVSS"
+  VDD: "1.2 V"
+  VSS: "0 V"
+
+#par.generate_power_straps_options.by_tracks:
+#  generate_rail_layer: true
+#  power_utilization_EA: 0.5
+#  power_utilization_EB: 0.5
+
+par.innovus.design_flow_effort: "express"
+
+
+
+# synthesis.clock_gating_mode: "false"
+
+#vlsi.inputs.default_output_load: "10 fF"
+
+# par.blockage_spacing: 100
+# par.blockage_spacing_top_layer
+
+# par.generate_power_straps_options.by_tracks.power_nets:
+#   - "VDD"
+#   - "VSS"
+#   - "AVDD"
+#   - "AVSS"
+
+#vlsi.inputs.custom_sdc_constraints:
+#  - "set_max_delay 0.9 -from [get_clocks clock_io] -to [get_ports VSAF_EN]"
+#  - "set_max_delay 0.9 -from [get_clocks clock_io] -to [get_ports VSAB_EN]"
+#  - "set_max_delay 0.6 -from [get_clocks clock_io] -to [get_ports RWLF_pre*]"
+#  - "set_max_delay 0.6 -from [get_clocks clock_io] -to [get_ports RWLB_pre*]"
+  # - "set_load -wire_load 100000 [get_nets WWL_pre*]"
+  # - "set_load -pin_load 1.25 [get_pin mc/VSAF_EN]"
+  # - "set_load -pin_load 1.25 [get_pin mc/VSAB_EN]"
+  # - ""
+
+#vlsi.inputs.output_loads:
+#  - name: "RWLF_pre*"
+#    load: "0.012 pF"
+
+#vlsi.inputs.decaps:
+#  - density: 0.75
+#    target: "density"
+
+vlsi.inputs.mmmc_corners: [
+  {
+    name: "tt_nominal_max_1p20v_25c",
+    type: "setup",
+    voltage: "1.20 V",
+    temp: "25 C"
+  },
+  {
+    name: "tt_nominal_max_1p20v_25c",
+    type: "hold",
+    voltage: "1.20 V",
+    temp: "25 C"
+  },
+  {
+    name: "tt_nominal_max_1p20v_25c",
+    type: "extra",
+    voltage: "1.20 V",
+    temp: "25 C"
+  }
+]

@@ -1,0 +1,64 @@
+synthesis.inputs:
+  input_files:
+    - "external/xormix/verilog/rtl/xormix32.v"
+    - "src/prng_top/prng_top.v"
+  input_files_meta: "append"
+  top_module: "prng_top"
+
+sim.inputs:
+  input_files:
+    - "xormix/verilog/rtl/xormix32.v"
+    - "src/prng_top/prng_top.v"
+    - "test/prng_top/prng_tb.v"
+  input_files_meta: "append"
+  top_module: "prng_tb"
+  tb_name: "prng_tb"
+  tb_dut: "dut"
+  timescale: "1ns/10ps"
+  # defines: ["DEBUG"]
+  # defines_meta: "append"
+
+vlsi.inputs.pin:
+  assignments:
+    - pins: "seed_shift_*"
+      side: "left"
+      layers: ["M5"]
+      preplaced: false
+    - pins: "rands*"
+      side: "top"
+      layers: ["M4","M6"]
+      preplaced: false
+    - pins: "clk"
+      side: "left"
+      layers: ["M5"]
+      preplaced: false
+    - pins: "rst"
+      side: "left"
+      layers: ["M5"]
+      preplaced: false
+    - pins: "rng_en"
+      side: "left"
+      layers: ["M5"]
+      preplaced: false
+    # - pins: "VDD"
+    #   side: "top"
+    #   layers: ["EB"]
+    #   preplaced: false
+    # - pins: "VSS"
+    #   side: "top"
+    #   layers: ["EB"]
+    #   preplaced: false
+
+vlsi.inputs.placement_constraints:
+  - path: "prng_top"
+    type: toplevel
+    x: 0
+    y: 0
+    width: 200
+    height: 100
+    margins:
+      left: 0
+      right: 0
+      top: 0
+      bottom: 0
+

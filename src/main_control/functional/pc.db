@@ -1,0 +1,27 @@
+--pcdbVlog file, Rev:1.0
+
+#CELL
+* decoder4Bit *
+BP_Mux_Decoder
+
+#CELL
+* decoder6Bit *
+WTA_Va_Decoder
+WTA_Vb_Decoder
+
+#CELL
+* decoder8Bit *
+Prog_WL_Decoder
+
+#CELL
+* randClauseSelect *
+randClauseSelect_UUT
+
+#CELL
+* xormix32 *
+prng_core
+
+#CELL
+* randVarSelect *
+randVarSelect_UUT
+

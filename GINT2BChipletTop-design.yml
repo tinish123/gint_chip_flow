@@ -1,0 +1,261 @@
+synthesis.inputs:
+  input_files:
+    #- "external/xormix/verilog/rtl/xormix32.v"
+    #- "src/prng_top/functional/verilog.v"
+    - "src/gint2B_main_control/functional/verilog.v"
+    - "src/GINT2BChipletTop/functional/verilog.v"
+    #- "test/main_control_new_tb/functional/verilog.v"
+  input_files_meta: "append"
+  top_module: "GINT2BChipletTop"   
+
+#sim.inputs:
+#  input_files:
+#    - "test/gint2_main_control_tb/functional/verilog.v"
+#  input_files_meta: "append"
+#  top_module: "main_control_tb"
+#  tb_name: "main_control_tb"
+#  tb_dut: "UUT"
+#  timescale: "1ns/1ps"
+   #defines: ["DEBUG"]
+   #defines_meta: "append"
+
+#vlsi.inputs.pin.assignments:
+#  - pins: "*"
+#    side: "top"
+#    layers: ["M2", "M4", "M6"]
+#    preplaced: false
+vlsi.inputs.pin.assignments:
+  - pins: "clock_io"
+    # side: "bottom"
+    layers: ["M6"]
+    location: [750.0, 150.0]
+  - pins: "clock2_io"
+    # side: "bottom"
+    layers: ["M6"]
+    location: [1100.0, 150.0]
+#   - pins: "*"
+#     side: "top"
+#     layers: ["M2", "M4", "M6"]
+#     preplaced: false
+
+vlsi.inputs.placement_constraints:
+  - path: "GINT2BChipletTop"
+    type: toplevel
+    x: 0
+    y: 0
+    width: 1400
+    height: 1400
+    margins:
+      top: 200
+      bottom: 200
+      left: 200
+      right: 200
+  - path: "GINT2AChipletTop/a"
+    master: "array_with_periph"
+      # 
+      # ORIGIN 55.896 118.923 ;
+      # FOREIGN array_with_periph -55.896 -118.923 ;
+      # SIZE 559.76 BY 540.879 ;
+    type: "hardmacro"
+    x: 400
+    y: 500
+    orientation: "R0"
+  - type: "obstruction"
+    path: "GINT2AChipletTop/block_place_around_array"
+    # around array_with_periph
+    obs_types: ["place"]
+    x: 380
+    y: 492
+    width: 600
+    height: 576
+    layers: ["M1", "M2", "M3", "M4", "M5", "M6"]
+  - type: "obstruction"
+    path: "GINT2AChipletTop/block_power_around_array"
+    # around array_with_periph
+    obs_types: ["power"]
+    x: 384
+    y: 491.8
+    width: 592
+    height: 576.4
+    layers: ["M1", "M2", "M3", "M4", "M5", "M6"]
+  # - type: "obstruction"
+  #   path: "GINT2AChipletTop/block_power_around_array"
+  #   # around array_with_periph
+  #   obs_types: ["power"]
+  #   x: 384
+  #   y: 491.8
+  #   width: 592
+  #   height: 564.4
+  #   layers: ["EA", "EB"]   
+  - type: "obstruction"
+    obs_types: ["place", "route", "power"]
+    layers: ["M1", "M2", "M3", "M4", "M5", "M6"] 
+    path: "GINT2AChipletTop/guard_caps_bottom_right"
+    x: 880
+    y: 510
+    width: 80
+    height: 104
+  - type: "obstruction"
+    obs_types: ["place", "route", "power"]
+    layers: ["M1", "M2", "M3", "M4", "M5", "M6"] 
+    path: "GINT2AChipletTop/guard_caps_bottom_left"
+    x: 399
+    y: 517
+    width: 154
+    height: 80
+  - type: "obstruction"
+    obs_types: ["place", "route", "power"]
+    layers: ["M1", "M2", "M3", "M4", "M5", "M6"] 
+    path: "GINT2AChipletTop/guard_caps_top_right"
+    x: 893
+    y: 971
+    width: 62
+    height: 62
+  - type: "obstruction"
+    path: "GINT2AChipletTop/block_EB_at_array_east_edge"
+    obs_types: ["power"]
+    x: 880
+    y: 525
+    height: 505
+    width: 70
+    layers: ["EB"]
+    
+      
+synthesis.clock_gating_mode: "false"
+vlsi.inputs.default_output_load: "0.1 pF"
+
+vlsi.inputs.clocks:
+  # - name: "iocell_clock_io_pad"
+  - name: "clock_io"
+    period: "10 ns"
+    uncertainty: "0.01 ns"
+  - name: "clock2_io"
+    period: "10 ns"
+    uncertainty: "0.01 ns"
+    
+    
+vlsi.user.custom_physical_library: "/home/tinish/gint-project/custom/gint2_vm_full.lef"
+par.inputs.io_plan_file: "/home/tinish/gint-project/digital/GINT2A.io"
+
+vlsi.inputs.supplies:
+  power:
+    - "name": "VDD"
+      "pins": ["VDD", "VNW"]
+    # - "name": "IOVDD"
+    #   "pins": ["DVDD"]
+    #   "voltage": "3.3 V"
+    # - "name": "AVDD"
+    #   "pins": ["AVDD"]
+    #   "voltage": "1.2 V"
+  ground:
+    - "name": "VSS"
+      "pins": ["VSS", "VPW"]
+    # - "name": "AVSS"
+    #   "pins": "AVSS"
+  VDD: "1.2 V"
+  VSS: "0 V"
+  
+  
+par.generate_power_straps_options.by_tracks:
+  generate_rail_layer: true
+  power_utilization_EA: 0.5
+  power_utilization_EB: 0.5
+
+par.innovus.design_flow_effort: "extreme"
+par.innovus.design_power_effort: "high"
+synthesis.genus.phys_flow_effort: "high"
+
+vlsi.inputs.custom_sdc_constraints:
+  - "set_max_delay 0.9 -from [get_clocks clock_io] -to [get_ports VSAF_EN]"
+  - "set_max_delay 0.9 -from [get_clocks clock_io] -to [get_ports VSAB_EN]"
+  - "set_max_delay 0.9 -from [get_clocks clock_io] -to [get_ports PBIT_EN]"
+  - "set_max_delay 0.6 -from [get_clocks clock_io] -to [get_ports RWLF_pre*]"
+  - "set_max_delay 0.6 -from [get_clocks clock_io] -to [get_ports RWLBS_pre*]"
+  - "set_max_delay 0.6 -from [get_clocks clock_io] -to [get_ports RWLBZ_pre*]"
+  - "set_max_delay 0.6 -from [get_clocks clock_io] -to [get_ports BP_PUnS*]"
+  - "set_max_delay 0.6 -from [get_clocks clock_io] -to [get_ports BP_PUnZ*]"
+  - "set_max_delay 0.6 -from [get_clocks clock_io] -to [get_ports FP_PUn]"
+  
+
+vlsi.inputs.output_loads:
+  - name: "RWLF_pre*"
+    load: "0.017 pF"
+  - name: "RWLBS_pre*"
+    load: "0.0054 pF"
+  - name: "RWLBZ_pre*"
+    load: "0.0037 pF"
+  - name: "MB_SEL*"
+    load: "0.017 pF"
+  - name: "PBIT_SEL*"
+    load: "0.015 pF"
+  - name: "DRDN_WBLp*"
+    load: "0.0035 pF"
+  - name: "DRUPn_WBLp*"
+    load: "0.0036 pF"
+  - name: "DRDN_WBLn*"
+    load: "0.0035 pF"
+  - name: "DRUPn_WBLn*"
+    load: "0.0036 pF"
+  - name: "WWL_pre*"
+    load: "0.0033 pF"
+  - name: "VSAB_EN"
+    load: "0.39 pF"
+  - name: "VSAF_EN"
+    load: "1.51 pF" 
+  - name: "PBIT_EN"
+    load: "0.3 pF"
+  - name: "FP_PUn"
+    load: "0.4 pF" 
+  - name: "BP_PUnS*"
+    load: "0.016 pF"
+  - name: "BP_PUnZ*"
+    load: "0.016 pF"
+  - name: "rn0*"
+    load: "0.007 pF"
+  - name: "rn1*"
+    load: "0.0117 pF"
+  - name: "rn2*"
+    load: "0.0123 pF"
+  - name: "rn3*"
+    load: "0.0121 pF"
+  - name: "rp0*"
+    load: "0.008 pF"
+  - name: "rp1*"
+    load: "0.0113 pF"
+  - name: "rp2*"
+    load: "0.013 pF"
+  - name: "rp3*"
+    load: "0.0128 pF"
+
+
+#vlsi.inputs.input_loads:
+#  - name: "TRUE0*"
+#    load: "0.0065 pF"
+#  - name: "TRUE1*"
+#    load: "0.0065 pF"
+
+vlsi.inputs.decaps:
+  - density: 0.75
+    target: "density"
+
+vlsi.inputs:
+    mmmc_corners: [
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "setup",
+        voltage: "1.20 V",
+        temp: "25C"
+      },
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "hold",
+        voltage: "1.2 V",
+        temp: "25 C"
+      },
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "extra",
+        voltage: "1.20 V",
+        temp: "25 C"
+      }
+    ]

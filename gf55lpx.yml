@@ -1,0 +1,9 @@
+# Technology Setup
+vlsi.core.technology: "hammer.technology.gf55lpx"
+
+# technology files installation directory
+technology.gf55lpx.sc12_base_rvt_w3_r4p0: "/PDKS/arm/gf/55lpx/sc12_base_rvt_w3/r4p0"
+technology.gf55lpx.55lpx: "/PDKS/GF/55LPx/V1.0_6.0"
+
+par.inputs.gds_map_mode: "manual"
+par.inputs.gds_map_file: "/PDKS/GF/55LPx/V1.0_6.0/PlaceRoute/Encounter/Techfiles/6_00_02_00_LB/gf55lpx_6_00_02_00_LB_tech.map"

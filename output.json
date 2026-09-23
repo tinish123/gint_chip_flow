@@ -1,0 +1,23 @@
+{
+    "vlsi.builtins.is_complete": false,
+    "par.outputs.output_ilms": [],
+    "par.outputs.output_ilms_meta": "append",
+    "vlsi.inputs.ilms": [],
+    "vlsi.inputs.ilms_meta": "append",
+    "par.outputs.output_gds": "/home/tinish/gint-project/digital/build/GINT1AChipletTop/par-rundir/GINT1AChipletTop.gds",
+    "par.outputs.output_netlist": "/home/tinish/gint-project/digital/build/GINT1AChipletTop/par-rundir/GINT1AChipletTop.lvs.v",
+    "par.outputs.output_sim_netlist": "/home/tinish/gint-project/digital/build/GINT1AChipletTop/par-rundir/GINT1AChipletTop.sim.v",
+    "par.outputs.hcells_list": [],
+    "par.outputs.seq_cells": "/home/tinish/gint-project/digital/build/GINT1AChipletTop/par-rundir/find_regs_cells.json",
+    "par.outputs.all_regs": "/home/tinish/gint-project/digital/build/GINT1AChipletTop/par-rundir/find_regs_paths.json",
+    "par.inputs.input_files": [
+        "/home/tinish/gint-project/digital/build/GINT1AChipletTop/syn-rundir/GINT1AChipletTop.mapped.v"
+    ],
+    "par.inputs.top_module": "GINT1AChipletTop",
+    "par.outputs.sdf_file": "/home/tinish/gint-project/digital/build/GINT1AChipletTop/par-rundir/GINT1AChipletTop.par.sdf",
+    "par.outputs.spefs": [
+        "/home/tinish/gint-project/digital/build/GINT1AChipletTop/par-rundir/GINT1AChipletTop.tt_nominal_max_1p20v_25c.par.spef",
+        "/home/tinish/gint-project/digital/build/GINT1AChipletTop/par-rundir/GINT1AChipletTop.tt_nominal_max_1p20v_25c.par.spef",
+        "/home/tinish/gint-project/digital/build/GINT1AChipletTop/par-rundir/GINT1AChipletTop.tt_nominal_max_1p20v_25c.par.spef"
+    ]
+}

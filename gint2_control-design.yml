@@ -1,0 +1,162 @@
+synthesis.inputs:
+  input_files:
+    #- "external/xormix/verilog/rtl/xormix32.v"
+    #- "src/prng_top/functional/verilog.v"
+    - "src/gint2_main_control/functional/verilog.v"
+    #- "test/main_control_new_tb/functional/verilog.v"
+  input_files_meta: "append"
+  top_module: "main_control"
+
+#sim.inputs:
+#  input_files:
+#    - "test/gint2_main_control_tb/functional/verilog.v"
+#  input_files_meta: "append"
+#  top_module: "main_control_tb"
+#  tb_name: "main_control_tb"
+#  tb_dut: "UUT"
+#  timescale: "1ns/1ps"
+   #defines: ["DEBUG"]
+   #defines_meta: "append"
+
+#vlsi.inputs.pin.assignments:
+#  - pins: "*"
+#    side: "top"
+#    layers: ["M2", "M4", "M6"]
+#    preplaced: false
+vlsi.inputs.pin.assignments:
+  - pins: "*"
+    side: "top"
+    layers: ["M6"]
+    preplaced: false
+
+vlsi.inputs.placement_constraints:
+  - path: "main_control"
+    type: toplevel
+    x: 0
+    y: 0
+    width: 900
+    height: 900
+    margins:
+      top: 0
+      bottom: 0
+      left: 0
+      right: 0
+      
+    
+      
+synthesis.clock_gating_mode: "false"
+vlsi.inputs.default_output_load: "0.1 pF"
+
+#vlsi.inputs.power_spec_mode: "auto"
+#vlsi.inputs.power_spec_type: "cpf"
+
+vlsi.inputs.clocks: [
+  {name: "clk", period: "10ns", uncertainty: "0.01ns"},
+  {name: "clk2", period: "10ns", uncertainty: "0.01ns"}
+]
+
+par.innovus.design_flow_effort: "extreme"
+
+vlsi.inputs.custom_sdc_constraints:
+  - "set_max_delay 0.9 -from [get_clocks clk] -to [get_ports VSAF_EN]"
+  - "set_max_delay 0.9 -from [get_clocks clk] -to [get_ports VSAB_EN]"
+  - "set_max_delay 0.9 -from [get_clocks clk] -to [get_ports PBIT_EN]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports RWLF_pre*]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports RWLBS_pre*]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports RWLBZ_pre*]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports BP_PUnS*]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports BP_PUnZ*]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports FP_PUn]"
+#  - "set_max_delay 1.2 -from [get_ports clk] -to [get_ports RWLF_pre*]"
+#  - "set_max_delay 0.4 -from [get_ports clk] -to [fp_mode]"
+#  - "set_min_delay 0.0 -from [get_ports clk] -to [get_ports RWLF_pre*]"
+#  - "set_min_delay 0.0 -from [fp_mode] -to [get_ports RWLF_pre*]"
+#  - "set_max_delay 0.9 -from [get_clocks clk] -to [get_ports RWLB_pre*]"
+
+vlsi.inputs.output_loads:
+  - name: "RWLF_pre*"
+    load: "0.017 pF"
+  - name: "RWLBS_pre*"
+    load: "0.0054 pF"
+  - name: "RWLBZ_pre*"
+    load: "0.0037 pF"
+  - name: "MB_SEL*"
+    load: "0.017 pF"
+  - name: "PBIT_SEL*"
+    load: "0.015 pF"
+  - name: "DRDN_WBLp*"
+    load: "0.0035 pF"
+  - name: "DRUPn_WBLp*"
+    load: "0.0036 pF"
+  - name: "DRDN_WBLn*"
+    load: "0.0035 pF"
+  - name: "DRUPn_WBLn*"
+    load: "0.0036 pF"
+  - name: "WWL_pre*"
+    load: "0.0033 pF"
+  - name: "VSAB_EN"
+    load: "0.39 pF"
+  - name: "VSAF_EN"
+    load: "1.51 pF" 
+  - name: "PBIT_EN"
+    load: "0.3 pF"
+  - name: "FP_PUn"
+    load: "0.4 pF" 
+  - name: "BP_PUnS*"
+    load: "0.016 pF"
+  - name: "BP_PUnZ*"
+    load: "0.016 pF"
+  - name: "rn0*"
+    load: "0.007 pF"
+  - name: "rn1*"
+    load: "0.0117 pF"
+  - name: "rn2*"
+    load: "0.0123 pF"
+  - name: "rn3*"
+    load: "0.0121 pF"
+  - name: "rp0*"
+    load: "0.008 pF"
+  - name: "rp1*"
+    load: "0.0113 pF"
+  - name: "rp2*"
+    load: "0.013 pF"
+  - name: "rp3*"
+    load: "0.0128 pF"
+#  - name: "WTA_EN"
+#    load: "0.144 pF"
+#  - name: "RESETn"
+#    load: "0.158 pF"
+#  - name: "fp_mode"
+#    load: "0.0001 pF"
+
+vlsi.inputs.input_loads:
+  - name: "TRUE0*"
+    load: "0.0065 pF"
+  - name: "TRUE1*"
+    load: "0.0065 pF"
+    
+vlsi.inputs.decaps:
+  - density: 0.75
+    target: "density"
+
+vlsi.inputs:
+    mmmc_corners: [
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "setup",
+        voltage: "1.20 V",
+        temp: "25C"
+      },
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "hold",
+        voltage: "1.2 V",
+        temp: "25 C"
+      },
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "extra",
+        voltage: "1.20 V",
+        temp: "25 C"
+      }
+    ]

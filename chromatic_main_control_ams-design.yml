@@ -1,0 +1,131 @@
+synthesis.inputs:
+  input_files:
+    #- "external/xormix/verilog/rtl/xormix32.v"
+    - "src/chromatic_main_control_ams/functional/verilog.v"
+    # - "src/decoder4Bit/functional/verilog.v"
+    # - "src/decoder6Bit/functional/verilog.v"
+    # - "src/decoder8Bit/functional/verilog.v"
+    # - "src/randClauseSelect/functional/verilog.v"
+    # - "src/randVarSelect/functional/verilog.v"
+    # - "test/main_control_ams_tb/functional/verilog.v"
+  input_files_meta: "append"
+  top_module: "chromatic_main_control_ams"
+
+#sim.inputs:
+#  input_files:
+#    - "external/xormix/verilog/rtl/xormix32.v"
+#    - "src/main_control_ams/functional/verilog.v"
+#    # - "test/main_control_ams_tb/functional/verilog.v"
+#  top_module: "main_control_ams_tb"
+#  tb_name: "main_control_ams_tb"
+#  tb_dut: "dut"
+#  timescale: "1ns/1ps"
+  # defines: ["DEBUG"]
+  # defines_meta: "append"
+
+vlsi.inputs.pin.assignments:
+  - pins: "*"
+    side: "top"
+    layers: ["M6"]
+    preplaced: false
+
+vlsi.inputs.placement_constraints:
+  - path: "chromatic_main_control_ams"
+    type: toplevel
+    x: 0
+    y: 0
+    width: 900
+    height: 900
+    margins:
+      top: 0
+      bottom: 0
+      left: 0
+      right: 0
+
+#synthesis.clock_gating_mode: "false"
+synthesis.clock_gating_mode: auto
+vlsi.inputs.default_output_load: "0.1 pF"
+
+vlsi.inputs.clocks: [
+  {name: "clk", period: "5.5ns", uncertainty: "0.0055ns"}
+]
+
+par.innovus.design_flow_effort: "extreme"
+
+vlsi.inputs.custom_sdc_constraints:
+  - "set_max_delay 0.9 -from [get_clocks clk] -to [get_ports VSAF_EN]"
+  - "set_max_delay 0.9 -from [get_clocks clk] -to [get_ports VSAB_EN]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports RWLF_pre*]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports RWLB_pre*]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports BP_PUn]"
+  - "set_max_delay 0.6 -from [get_clocks clk] -to [get_ports FP_PUn]"
+  
+vlsi.inputs.output_loads:
+  - name: "RWLF_pre*"
+    load: "0.017 pF"
+  - name: "RWLB_pre*"
+    load: "0.0054 pF"
+  - name: "MAKE_SEL0*"
+    load: "0.017 pF"
+  - name: "MAKE_SEL1*"
+    load: "0.015 pF"
+  - name: "BREAK_SEL0*"
+    load: "0.015 pF"
+  - name: "BREAK_SEL1*"
+    load: "0.015 pF"
+  - name: "DRDN_WBLp*"
+    load: "0.0035 pF"
+  - name: "DRUP_WBLp*"
+    load: "0.0036 pF"
+  - name: "DRDN_WBLn*"
+    load: "0.0035 pF"
+  - name: "DRUP_WBLn*"
+    load: "0.0036 pF"
+  - name: "WWL_pre*"
+    load: "0.0033 pF"
+  - name: "VSAB_EN"
+    load: "0.39 pF"
+  - name: "VSAF_EN"
+    load: "1.51 pF"
+  - name: "FP_PUn"
+    load: "0.4 pF" 
+  - name: "BP_PUn"
+    load: "0.016 pF"
+#  - name: "WTA_EN"
+#    load: "0.144 pF"
+#  - name: "RESETn"
+#    load: "0.158 pF"
+#  - name: "fp_mode"
+#    load: "0.0001 pF"
+
+#vlsi.inputs.input_loads:
+#  - name: "TRUE0*"
+#    load: "0.0065 pF"
+#  - name: "TRUE1*"
+#    load: "0.0065 pF"
+
+vlsi.inputs.decaps:
+  - density: 0.75
+    target: "density"
+
+vlsi.inputs:
+    mmmc_corners: [
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "setup",
+        voltage: "1.20 V",
+        temp: "25C"
+      },
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "hold",
+        voltage: "1.2 V",
+        temp: "25 C"
+      },
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "extra",
+        voltage: "1.20 V",
+        temp: "25 C"
+      }
+    ]

@@ -1,0 +1,83 @@
+technology.gf55lpx:
+  55lpx: "/PDKS/GF/55LPx/V1.0_6.0"
+  sc12_base_rvt_w3_r4p0: "/PDKS/arm/gf/55lpx/sc12_base_rvt_w3/r4p0"
+  aragio_pad_dir: "/PDKS/aragio/rgo_gf55_25v33_lpx_50c_rev_1_6"
+
+vlsi:
+  core:
+    technology: gf55lpx
+    node: 55
+    sram_generator_tool: "hammer.technology.gf55lpx.sram_compiler"
+  inputs:
+    supplies:
+      VDD: "1.2 V"
+      GND: "0 V"
+    mmmc_corners: [
+      {
+        name: "ss_nominal_max_0p81v_150c",
+        type: "setup",
+        voltage: "0.81 V",
+        temp: "150C"
+      },
+      {
+        name: "ff_nominal_min_1p32v_m40c",
+        type: "hold",
+        voltage: "1.32 V",
+        temp: "-40 C"
+      },
+      {
+        name: "tt_nominal_max_1p20v_25c",
+        type: "extra",
+        voltage: "1.20 V",
+        temp: "25 C"
+      }
+    ]
+  # TODO: copied from sky130 below, not sure how this actually works
+  technology:
+    placement_site: "sc12_logic55lpx"
+    bump_block_cut_layer: "via4" # Set the layer that blocks vias under bumps
+
+    tap_cell_interval: 25.0 # Set the interval and offset for tap cells
+    tap_cell_offset: 5.0
+
+    routing_layers: [1, 8]
+
+technology.core:
+  stackup: "6_00_02_00_LB"
+  std_cell_rail_layer: "M1"
+  std_cell_supplies:
+    power: ["VDD", "VNW"]
+    ground: ["VSS", "VPW"]
+
+par.power_straps_mode: generate # Power straps (most DRC-clean)
+par.generate_power_straps_method: by_tracks
+par.generate_power_straps_options:
+  by_tracks:
+
+    strap_layers:
+      - M2
+      - M3
+      - M4
+      - M5
+      - M6
+      - EA
+      - EB
+      # - LB
+    pin_layers:
+      - EB
+    track_width: 3
+    track_spacing: 2
+    track_start: 0
+    power_utilization: 0.2
+    track_width_M2: 1
+    track_spacing_M2: 1
+    track_start_M2: 24
+    power_utilization_M2: 0.024
+    power_utilization_EA: 0.7
+    power_utilization_EB: 0.7
+    power_utilization_LB: 0.7
+    track_width_EA: 5
+    track_width_EB: 5
+
+par.inputs.gds_map_mode: "manual"
+par.inputs.gds_map_file: "/PDKS/GF/55LPx/V1.0_6.0/PlaceRoute/Encounter/Techfiles/6_00_02_00_LB/gf55lpx_6_00_02_00_LB_tech.map"
