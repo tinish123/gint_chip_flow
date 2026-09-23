@@ -56,6 +56,15 @@ These files cannot be distributed due to licensing and proprietary-design restri
 
 Users wishing to adapt the flow to another environment should replace these references with the corresponding technology, library, macro, and tool files available to them.
 
+
+## Related Publications
+
+This Hammer-based design flow was used to develop the 55-nm mixed-signal compute-in-memory chips presented in the following publications:
+
+1. **T. Bhattacharya et al.**, "[A Fully Integrated Mixed-Signal Compute-in-Memory Accelerator for Solving Arbitrary Order Boolean Satisfiability Problems](https://ieeexplore.ieee.org/document/11074791)," *IEEE Symposium on VLSI Technology and Circuits*, 2025.
+
+2. **T. Bhattacharya et al.**, "[PCIM-SAT: A 55nm Probabilistic K-SAT Solver with p-Bit-Based Parallel-Variable Update on a Mixed-Signal Compute-in-Memory Architecture](https://ieeexplore.ieee.org/document/11408954)," *IEEE International Solid-State Circuits Conference (ISSCC)*, 2026.
+   
 ## Notes
 
 This repository is meant to demonstrate the organization and implementation of a Hammer-driven ASIC flow, including custom synthesis and physical-design automation. It should be treated as a reference flow rather than an immediately reproducible design environment.
